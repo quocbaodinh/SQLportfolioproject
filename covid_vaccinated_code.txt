@@ -1,0 +1,54 @@
+--Connect database and import data that we are going to be using
+Copy public."covid_vaccinated" (iso_code,continent,location,date,total_vaccinations,people_vaccinated,people_fully_vaccinated,new_vaccinations,new_vaccinations_smoothed,population) From 'C:\Users\Public\Documents' Delimiter ',' CSV Header 
+
+--Looking at Total Vaccinations and People vaccinated
+Select date, total_vaccinations,  people_vaccinated
+From covid_vaccinated
+Where location like '%Vietnam%'
+
+--Looking at Total Vaccinations and People vaccinated from the first day update data
+Select date, total_vaccinations,  people_vaccinated
+From covid_vaccinated
+Where location like '%Vietnam%' and total_vaccinations is not null
+
+-- Looking total vaccinations in month
+Select date_trunc('month',date) as time, max(total_vaccinations) as vaccinations
+From covid_vaccinated
+Where total_vaccinations is not null and location like '%Vietnam%'
+Group by time
+
+-- The month of highest use of vaccine
+With vc1 as(
+			Select date_trunc('month',date) as time, max(total_vaccinations) as vaccinations
+			From covid_vaccinated
+			-- Filter data only Vietnam	
+			Where total_vaccinations is not null and location like '%Vietnam%'
+			Group by time
+			Order by time
+			), vc2 as(
+					Select time, vaccinations,
+					lag(vaccinations,1) over(order by time) as previous_month
+					From vc1
+					)
+Select time,vaccinations, previous_month, vaccinations-previous_month as variance
+From vc2
+-- Show month using the most vaccines
+Order by variance desc
+
+-- Show percentage of Vietnamese vaccinated in month
+With vp1 as(
+			Select date_trunc('month', date) as time, max(people_vaccinated) as people_vaccinated_month, max(population) as population
+			From covid_vaccinated
+			Where people_vaccinated is not null and location like '%Vietnam%'
+			Group by time
+			)
+Select time, people_vaccinated_month, population, people_vaccinated_month/population*100 as Vaccinated_percentage
+From vp1
+
+-- Compare some countries with Vietnam according to the ratio of vaccines per person
+Select location, max(total_vaccinations)/max(people_vaccinated) as vaccine_per_person
+From covid_vaccinated
+Where location in ('Vietnam','Thailand','United States','United Kingdom','China')
+Group by location
+Order by vaccine_per_person desc
+
